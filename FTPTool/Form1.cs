@@ -64,7 +64,7 @@ namespace FTPTool
         #region 文件的下载操作
         private void DownloadOperation() 
         {
-            SftpDownload(textfile.Text, Environment.CurrentDirectory+textLfolder.Text, textRfolder.Text);
+            SftpDownload(textfile.Text, textLfolder.Text, textRfolder.Text);
         }
         #endregion
         private void update_Click(object sender, EventArgs e)
@@ -74,7 +74,7 @@ namespace FTPTool
         }
         private void UploadOperation() 
         {
-            SftpUpload(textfile.Text, Environment.CurrentDirectory+textLfolder.Text, textRfolder.Text);
+            SftpUpload(textfile.Text, textLfolder.Text, textRfolder.Text);
         }
         private void SftpUpload(string filename, string localfolder,string ftppath) 
         {
@@ -86,10 +86,10 @@ namespace FTPTool
                 ArrayList result = new ArrayList() ;
                 if (filename.EndsWith("/"))
                 {
-                    res = SFTP.UploadFolder(localroot + "/" + localfolder + "/" + filename, ftproot + "/" + ftppath + "/" + filename, ref result);
+                    res = SFTP.UploadFolder(Environment.CurrentDirectory + "/" +localroot + "/" + localfolder + "/" + filename, ftproot + "/" + ftppath + "/" + filename, ref result);
                 }
                 else {
-                    res = SFTP.UploadFile(localroot + "/" + localfolder + "/" + filename, ftproot + "/" + ftppath + "/" + filename);
+                    res = SFTP.UploadFile(Environment.CurrentDirectory + "/" + localroot + "/" + localfolder + "/" + filename, ftproot + "/" + ftppath + "/" + filename);
                 }
                 if (res)
                 {
@@ -119,11 +119,11 @@ namespace FTPTool
                     ArrayList result = new ArrayList();
                     if (filename.EndsWith("/"))
                     {
-                        res = SFTP.DownloadFolder(ftproot + "/" + ftppath + "/" + filename, localroot + "/" + localpath + "/" + filename, ref result);
+                        res = SFTP.DownloadFolder(ftproot + "/" + ftppath + "/" + filename, Environment.CurrentDirectory + "/" + localroot + "/" + localpath + "/" + filename, ref result);
                     }
                     else
                     {
-                        res = SFTP.DownloadFile(ftproot + "/" + ftppath + "/" + filename, localroot + "/" + localpath + "/" + filename);
+                        res = SFTP.DownloadFile(ftproot + "/" + ftppath + "/" + filename, Environment.CurrentDirectory + "/" + localroot + "/" + localpath + "/" + filename);
                     }
                     if (res)
                     { SetText("下载成功\r\n"); }
