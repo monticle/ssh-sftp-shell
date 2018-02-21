@@ -16,31 +16,11 @@ using System.Runtime.InteropServices;
 using System.Collections;
 using Tamir.SharpSsh;
 using Tamir.SharpSsh.jsch;
-
 namespace FTPTool
 {
-    interface SFTP
+    public class SFTPHelper
     {
-        public class SFTPHelper
-        {
-            //[DllImport("Tamir.SharpSSH.dll")]
-            //private extern static IntPtr LoadLibrary(String path);
-            //[DllImport("Tamir.SharpSSH.dll")]
-            //private extern static IntPtr GetProcAddress(IntPtr lib, String funcName);
-            //[DllImport("Tamir.SharpSSH.dll")]
-            //private extern static bool FreeLibrary(IntPtr lib);
-            //[DllImport("DiffieHellman.dll")]
-            //private extern static IntPtr LoadLibrary(String path);
-            //[DllImport("DiffieHellman.dll")]
-            //private extern static IntPtr GetProcAddress(IntPtr lib, String funcName);
-            //[DllImport("DiffieHellman.dll")]
-            //private extern static bool FreeLibrary(IntPtr lib);
-            //[DllImport("Org.Mentalis.Security.dll")]
-            //private extern static IntPtr LoadLibrary(String path);
-            //[DllImport("Org.Mentalis.Security.dll")]
-            //private extern static IntPtr GetProcAddress(IntPtr lib, String funcName);
-            //[DllImport("Org.Mentalis.Security.dll")]
-            private extern static bool FreeLibrary(IntPtr lib);
+       
             private Session m_session;
             private Channel m_channel;
             private ChannelSftp m_sftp;
@@ -94,14 +74,34 @@ namespace FTPTool
                 }
             }
 
-            //SFTP存放文件        
-            public bool Put(string localPath, string remotePath)
+            //新建目录
+            public bool Mkdir(string path)
             {
                 try
                 {
-                    Tamir.SharpSsh.java.String src = new Tamir.SharpSsh.java.String(localPath);
-                    Tamir.SharpSsh.java.String dst = new Tamir.SharpSsh.java.String(remotePath);
-                    m_sftp.put(src, dst);
+                    string root = "/";
+                    string[] folders = path.Split('/');
+                    foreach (string folder in folders) {
+                        if (folder.Length > 0 && (!folder.Equals("/"))) {
+                            Tamir.SharpSsh.java.String dir = new Tamir.SharpSsh.java.String(root + folder);
+                            bool isExists = false;
+                            SftpATTRS attrs;
+                            try
+                            {
+                                attrs = m_sftp.stat(dir);
+                                isExists = true;
+                            }
+                            catch (Exception e)
+                            {
+                                isExists = false;
+                            }
+                            if (isExists == false)
+                            {
+                                m_sftp.mkdir(dir);
+                            }
+                            root += folder + "/"; 
+                        }
+                    }
                     return true;
                 }
                 catch
@@ -110,21 +110,61 @@ namespace FTPTool
                 }
             }
 
-            //SFTP获取文件        
-            public bool Get(string remotePath, string localPath)
+            //SFTP上传文件        
+            public bool UploadFile(string localPath, string remotePath)
             {
                 try
                 {
+                    if (remotePath.EndsWith("/") || localPath.EndsWith("/")) { return false; }
+                    Connect();
+                    if (this.Connected)
+                    {
+                        //m_sftp.cd("./../../app/");//进入文件存放目录
+                        Tamir.SharpSsh.java.String src = new Tamir.SharpSsh.java.String(localPath);
+                        Tamir.SharpSsh.java.String dst = new Tamir.SharpSsh.java.String(remotePath);
+                        string remotefolder = remotePath.Substring(0, remotePath.LastIndexOf("/"));
+
+                        SftpATTRS attrs;
+                        try
+                        {
+                            attrs = m_sftp.stat(remotefolder);
+                        }
+                        catch (Exception e)
+                        {
+                            Mkdir(remotefolder);
+                        }
+                        m_sftp.put(src, dst);
+                        return true;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    //MessageBox.Show(ex.ToString());
+                    return false;
+                }
+                return false;
+            }
+
+            //SFTP下载文件        
+            public bool DownloadFile(string remotePath, string localPath)
+            {
+                try
+                {
+                    if (remotePath.EndsWith("/") || localPath.EndsWith("/")) { return false; }
                     Tamir.SharpSsh.java.String src = new Tamir.SharpSsh.java.String(remotePath);
                     Tamir.SharpSsh.java.String dst = new Tamir.SharpSsh.java.String(localPath);
+                    string localfolder = localPath.Substring(0, localPath.LastIndexOf("/"));
+                    DirectoryInfo dir = new DirectoryInfo(localfolder);
+                    if (!dir.Exists) { dir.Create(); }
                     m_sftp.get(src, dst);
                     return true;
                 }
-                catch
+                catch (Exception ex)
                 {
                     return false;
                 }
             }
+
             //删除SFTP文件
             public bool Delete(string remoteFile)
             {
@@ -139,26 +179,152 @@ namespace FTPTool
                 }
             }
 
-            //获取SFTP文件列表        
-            public ArrayList GetFileList(string remotePath, string fileType)
+            //SFTP上传目录下所有文件，
+            //ref ArrayList 为操作失败文件列表       
+            public bool UploadFolder(string localPath, string remotePath, ref ArrayList failedlist)
+            {
+                ArrayList list = new ArrayList();
+                GetAllFileFullLocalPath(localPath, "", ref list);
+                foreach (string file in list)
+                {
+                    DirectoryInfo dir = new DirectoryInfo(localPath);
+                    string relativename = file.Substring(dir.FullName.Length).Replace("\\", "/");
+                    bool res = UploadFile(file, remotePath + relativename);
+                    if (!res)
+                    {
+                        failedlist.Add(file);
+                    }
+                }
+                return failedlist.Count == 0;
+            }
+            //SFTP下载目录下所有文件，
+            //ref ArrayList 为操作失败文件列表       
+            public bool DownloadFolder(string remotePath, string localPath, ref ArrayList failedlist)
+            {
+                ArrayList list = new ArrayList();
+                GetAllFileFullRemotePath(remotePath, "", ref list);
+                foreach (string file in list)
+                {
+                    string relativename = file.Substring(remotePath.Length).Replace("\\", "/");
+                    bool res = DownloadFile(file, localPath + relativename);
+                    if (!res)
+                    {
+                        failedlist.Add(file);
+                    }
+                }
+                return failedlist.Count == 0;
+            }
+
+            //删除SFTP目录
+            public bool DeleteFolder(string remoteFolder)
             {
                 try
                 {
+                    m_sftp.rmdir(remoteFolder);
+                    return true;
+                }
+                catch
+                {
+                    return false;
+                }
+            }
+
+            //获取SFTP文件/目录列表,fileType为空时列出所有文件
+            public ArrayList GetFolderContents(string remotePath, string fileType)
+            {
+                try
+                {
+                    if (remotePath.Length == 0) {
+                        remotePath = "/";
+                    }
                     Tamir.SharpSsh.java.util.Vector vvv = m_sftp.ls(remotePath);
                     ArrayList objList = new ArrayList();
                     foreach (Tamir.SharpSsh.jsch.ChannelSftp.LsEntry qqq in vvv)
                     {
                         string sss = qqq.getFilename();
-                        if (sss.Length > (fileType.Length + 1) && fileType == sss.Substring(sss.Length - fileType.Length))
+                        if (sss.Equals(".") || sss.Equals("..") || qqq.getAttrs().isLink() ) { continue; }
+
+                        bool isdir = qqq.getAttrs().isDir();
+                        if (isdir) { sss += "/"; }
+                        if (fileType.Length == 0 || (sss.Length > (fileType.Length + 1) && fileType == sss.Substring(sss.Length - fileType.Length)))
                         { objList.Add(sss); }
                         else { continue; }
                     }
 
                     return objList;
                 }
-                catch
+                catch (Exception e)
                 {
                     return null;
+                }
+            }
+
+            //获取SFTP所有文件列表，不包括目录, fileType为空时列出所有文件
+            public bool GetAllFileFullRemotePath(string remotePath, string fileType, ref ArrayList list)
+            {
+                try
+                {
+                    if (remotePath.Length == 0)
+                    {
+                        remotePath = "/";
+                    }
+                    Tamir.SharpSsh.java.util.Vector vvv = m_sftp.ls(remotePath);
+
+                    foreach (Tamir.SharpSsh.jsch.ChannelSftp.LsEntry qqq in vvv)
+                    {
+                        string sss = qqq.getFilename();
+                        if (sss.Equals(".") || sss.Equals("..")) { continue; }
+
+                        bool isdir = qqq.getAttrs().isDir();
+                        if (isdir) {
+                            GetAllFileFullRemotePath(remotePath + "/" + sss, fileType,ref list); 
+                        }
+                        else if (fileType.Length == 0 || (sss.Length > (fileType.Length + 1) && fileType == sss.Substring(sss.Length - fileType.Length)))
+                        { list.Add(remotePath + "/" + sss); }
+                        else { continue; }
+                    }
+                    return true;
+                }
+                catch (Exception e)
+                {
+                    return false;
+                }
+            }
+
+            /// <summary>
+            /// 查找指定文件夹下指定后缀名的文件
+            /// </summary>
+            /// <param name="directory">文件夹</param>
+            /// <param name="pattern">后缀名</param>
+            /// <returns>文件路径</returns>
+            public void GetAllFileFullLocalPath(string path, string pattern, ref ArrayList fileList)
+            {
+                DirectoryInfo directory = new DirectoryInfo(path);
+                if (directory.Exists || pattern.Trim() != string.Empty)
+                {
+                    try
+                    {
+                        FileInfo[] files;
+                        if (pattern.Trim().Length == 0)
+                        {
+                            files = directory.GetFiles();
+                        }
+                        else {
+                            files = directory.GetFiles(pattern);
+                        }
+                        foreach (FileInfo info in files)
+                        {
+                            fileList.Add(info.FullName.ToString());
+                        }
+                    }
+                    catch (System.Exception ex)
+                    {
+                        Console.WriteLine(ex.ToString());
+                    }
+                    foreach (DirectoryInfo info in directory.GetDirectories())//获取文件夹下的子文件夹
+                    {
+                        GetAllFileFullLocalPath(info.FullName, pattern, ref fileList);//递归调用该函数，获取子文件夹下的文件
+                    }
                 }
             }
 
@@ -179,4 +345,3 @@ namespace FTPTool
             }
         }
     }
-}
