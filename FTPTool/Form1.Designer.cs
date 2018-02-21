@@ -1,4 +1,4 @@
-﻿namespace 文件获取FTP工具
+﻿namespace FTPTool
 {
     partial class Form1
     {

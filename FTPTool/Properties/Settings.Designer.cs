@@ -8,7 +8,7 @@
 // </auto-generated>
 //------------------------------------------------------------------------------
 
-namespace 文件获取FTP工具.Properties
+namespace FTPTool.Properties
 {
 
 

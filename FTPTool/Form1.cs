@@ -25,7 +25,7 @@ using Renci.SshNet.Security;
 using Renci.SshNet.Messages;
 
 
-namespace 文件获取FTP工具
+namespace FTPTool
 {
     public partial class Form1 : Form
     {

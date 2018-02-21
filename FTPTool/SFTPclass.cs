@@ -16,31 +16,11 @@ using System.Runtime.InteropServices;
 using System.Collections;
 using Tamir.SharpSsh;
 using Tamir.SharpSsh.jsch;
-
-namespace 文件获取FTP工具
+namespace FTPTool
 {
-    interface SFTP
+    public class SFTPHelper
     {
-        public class SFTPHelper
-        {
-            //[DllImport("Tamir.SharpSSH.dll")]
-            //private extern static IntPtr LoadLibrary(String path);
-            //[DllImport("Tamir.SharpSSH.dll")]
-            //private extern static IntPtr GetProcAddress(IntPtr lib, String funcName);
-            //[DllImport("Tamir.SharpSSH.dll")]
-            //private extern static bool FreeLibrary(IntPtr lib);
-            //[DllImport("DiffieHellman.dll")]
-            //private extern static IntPtr LoadLibrary(String path);
-            //[DllImport("DiffieHellman.dll")]
-            //private extern static IntPtr GetProcAddress(IntPtr lib, String funcName);
-            //[DllImport("DiffieHellman.dll")]
-            //private extern static bool FreeLibrary(IntPtr lib);
-            //[DllImport("Org.Mentalis.Security.dll")]
-            //private extern static IntPtr LoadLibrary(String path);
-            //[DllImport("Org.Mentalis.Security.dll")]
-            //private extern static IntPtr GetProcAddress(IntPtr lib, String funcName);
-            //[DllImport("Org.Mentalis.Security.dll")]
-            private extern static bool FreeLibrary(IntPtr lib);
+       
             private Session m_session;
             private Channel m_channel;
             private ChannelSftp m_sftp;
@@ -99,17 +79,23 @@ namespace 文件获取FTP工具
             {
                 try
                 {
-                    Tamir.SharpSsh.java.String src = new Tamir.SharpSsh.java.String(localPath);
-                    Tamir.SharpSsh.java.String dst = new Tamir.SharpSsh.java.String(remotePath);
-                    m_sftp.put(src, dst);
-                    return true;
+                    Connect();
+                    if (this.Connected)
+                    {
+                        m_sftp.cd("./../../app/");//进入文件存放目录
+                        Tamir.SharpSsh.java.String src = new Tamir.SharpSsh.java.String(localPath);
+                        Tamir.SharpSsh.java.String dst = new Tamir.SharpSsh.java.String(remotePath);
+                        m_sftp.put(src, dst);
+                        return true;
+                    }
                 }
-                catch
+                catch (Exception ex)
                 {
+                    MessageBox.Show(ex.ToString());
                     return false;
                 }
+                return false;
             }
-
             //SFTP获取文件        
             public bool Get(string remotePath, string localPath)
             {
@@ -179,4 +165,3 @@ namespace 文件获取FTP工具
             }
         }
     }
-}
